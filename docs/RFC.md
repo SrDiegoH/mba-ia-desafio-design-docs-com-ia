@@ -34,6 +34,8 @@ A solução tem três componentes principais:
 
 O módulo (`src/modules/webhooks/`) segue exatamente a estrutura já usada em `orders`, `users`, `customers` e `products` — controller, service, repository, routes, schemas — e reaproveita `AppError`, o error middleware centralizado, o `requireRole` e o logger Pino já existentes no projeto, sem exigir alterações nesses componentes ([[ADR-006-reuso-de-padroes-existentes-do-projeto]]). O detalhamento de endpoints, contratos, matriz de erros e fluxos passo a passo está no `docs/FDD.md`.
 
+**Limitação conhecida de ordering.** Com um único worker, a entrega de eventos do mesmo pedido preserva a ordem de emissão (por `order_id`), mas não há garantia de ordem global entre pedidos diferentes, nem essa garantia se sustenta caso o processamento seja escalado para múltiplos workers no futuro — registrado explicitamente como limitação a documentar: "Documentamos como limitação conhecida. Não é garantia de ordering global, só por order_id e enquanto for single-worker" [09:13, Larissa].
+
 ## Alternativas Consideradas
 
 **Disparo síncrono do webhook dentro do `OrderService`.** A alternativa mais simples seria chamar o HTTP client diretamente dentro da transação (ou logo após) de `changeStatus`. Foi descartada porque acoplaria a confiabilidade da transação crítica de negócio à disponibilidade de sistemas de terceiros: "Síncrono não rola... qualquer cliente lento vai travar mudança de status pra outros pedidos" [09:04, Bruno]; "Síncrono está fora de questão" [09:06, Diego]. Trade-off: simplicidade de implementação perdida em troca de isolamento de falhas, considerado não-negociável dado que a transação de pedidos é o núcleo do sistema.

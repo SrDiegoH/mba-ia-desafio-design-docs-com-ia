@@ -25,6 +25,7 @@ Mapeia cada item registrado nos documentos de design à sua origem na transcriç
 | PRD-RNF-05 | docs/PRD.md | Requisito Não Funcional | Timeout de 10s por tentativa HTTP do worker | TRANSCRICAO | [09:42] Diego |
 | PRD-RNF-06 | docs/PRD.md | Requisito Não Funcional | X-Event-Id para idempotência/deduplicação no cliente | TRANSCRICAO | [09:24-09:25] Diego |
 | PRD-RNF-07 | docs/PRD.md | Requisito Não Funcional | Auditoria de quem executa replay de DLQ | TRANSCRICAO | [09:36] Sofia |
+| PRD-RNF-08 | docs/PRD.md | Restrição | Ordering: garantia só por order_id, sem ordem global, apenas single-worker | TRANSCRICAO | [09:12-09:13] Diego/Larissa |
 | PRD-ESCOPO-01 | docs/PRD.md | Restrição | Fora de escopo: notificação por e-mail em falha repetida | TRANSCRICAO | [09:37-09:38] Marcos/Larissa |
 | PRD-ESCOPO-02 | docs/PRD.md | Restrição | Fora de escopo: dashboard visual de gestão de webhooks | TRANSCRICAO | [09:39-09:40] Marcos/Larissa |
 | PRD-ESCOPO-03 | docs/PRD.md | Restrição | Fora de escopo: múltiplos workers em paralelo | TRANSCRICAO | [09:13] Diego |
@@ -46,6 +47,7 @@ Mapeia cada item registrado nos documentos de design à sua origem na transcriç
 | RFC-OPEN-02 | docs/RFC.md | Restrição | Questão em aberto: escalabilidade do worker além de uma instância | TRANSCRICAO | [09:13] Diego |
 | RFC-IMPACT-01 | docs/RFC.md | Risco | Impacto no changeStatus por responsabilidade adicional na transação | CODIGO | src/modules/orders/order.service.ts |
 | RFC-IMPACT-02 | docs/RFC.md | Risco | Novo processo de longa duração em produção (worker) | CODIGO | src/server.ts |
+| RFC-RESTR-01 | docs/RFC.md | Restrição | Limitação conhecida de ordering: só por order_id, apenas single-worker | TRANSCRICAO | [09:13] Larissa |
 | FDD-FLUXO-01 | docs/FDD.md | Requisito Funcional | Fluxo de criação do evento na outbox dentro de changeStatus | TRANSCRICAO | [09:06][09:40-09:41] Diego/Bruno |
 | FDD-FLUXO-02 | docs/FDD.md | Requisito Funcional | Fluxo de processamento pelo worker (polling, envio, marcação) | TRANSCRICAO | [09:09] Diego |
 | FDD-FLUXO-03 | docs/FDD.md | Decisão | Tabela de backoff (1m/5m/30m/2h/12h) | TRANSCRICAO | [09:17] Diego |
@@ -70,6 +72,8 @@ Mapeia cada item registrado nos documentos de design à sua origem na transcriç
 | FDD-INTEG-06 | docs/FDD.md | Decisão | Novos models no schema Prisma seguindo padrão UUID existente | CODIGO | prisma/schema.prisma |
 | FDD-INTEG-07 | docs/FDD.md | Decisão | Registro de rotas seguindo padrão de composição por módulo | CODIGO | src/routes/index.ts |
 | FDD-INTEG-08 | docs/FDD.md | Decisão | Novas env vars seguindo padrão Zod de validação no boot | CODIGO | src/config/env.ts |
+| FDD-INTEG-09 | docs/FDD.md | Restrição | NotFoundError precisa aceitar código customizável para emitir WEBHOOK_NOT_FOUND | CODIGO | src/shared/errors/http-errors.ts |
+| FDD-OBS-02 | docs/FDD.md | Restrição | redact.paths do Pino não cobre *.secret; requer ajuste antes do lançamento | CODIGO | src/shared/logger/index.ts |
 | ADR-001-DEC | docs/adrs/ADR-001-outbox-pattern-no-mysql.md | Decisão | Outbox pattern em MySQL, mesma transação do changeStatus | TRANSCRICAO | [09:06-09:08] Diego/Larissa |
 | ADR-001-ALT | docs/adrs/ADR-001-outbox-pattern-no-mysql.md | Trade-off | Alternativas descartadas: Redis Streams e trigger de banco | TRANSCRICAO | [09:07][09:09] Larissa/Diego |
 | ADR-002-DEC | docs/adrs/ADR-002-worker-em-processo-separado-com-polling.md | Decisão | Worker em processo separado, polling de 2s | TRANSCRICAO | [09:09-09:11] Diego/Larissa |

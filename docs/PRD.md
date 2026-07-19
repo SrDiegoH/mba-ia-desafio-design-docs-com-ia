@@ -66,6 +66,7 @@ Três clientes B2B — Atlas Comercial, MaxDistribuição e Nova Cargo — solic
 - **Segurança de transporte**: URLs de webhook devem usar HTTPS — [09:23, Sofia].
 - **Segurança de autenticidade**: assinatura HMAC-SHA256 obrigatória em toda entrega — [09:19-09:20, Sofia].
 - **Segurança de segredo**: secret exclusiva por endpoint, nunca global — [09:21, Sofia].
+- **Ordering (limitação conhecida)**: entregas de eventos do mesmo pedido preservam a ordem de emissão (por `order_id`), mas não há garantia de ordem global entre pedidos diferentes, e essa garantia depende de o processamento continuar sendo feito por um único worker — [09:12-09:13, Diego/Larissa].
 - **Limite de payload**: 64KB por evento, com falha explícita (não truncamento) acima do limite — [09:23-09:24, Sofia].
 - **Timeout de entrega**: 10 segundos por tentativa HTTP do worker — [09:42, Diego].
 - **Idempotência**: cada evento carrega identificador único (`X-Event-Id`) para permitir deduplicação do lado do cliente — [09:24-09:25, Diego].
@@ -84,7 +85,6 @@ Detalhamento completo das decisões técnicas em `docs/RFC.md` e `docs/adrs/`.
 
 - Banco MySQL já existente (via Prisma) — nenhuma infraestrutura nova requerida.
 - Estrutura de módulos, classes de erro, middleware de autenticação/autorização e logger já existentes no OMS (ver `docs/FDD.md`, seção "Integração com o sistema existente").
-- Cliente HTTP de saída a ser adicionado como dependência do projeto (não existe hoje).
 - Disponibilidade da equipe de segurança (Sofia) para revisão dedicada antes do lançamento — pelo menos 2 dias úteis reservados — [09:46, Sofia].
 
 ## Riscos e Mitigação

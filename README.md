@@ -301,7 +301,7 @@ Itere bastante. Os primeiros documentos que a IA gerar provavelmente serão supe
 
 # Sistema de Webhooks de Notificação de Pedidos — Design Docs Gerados por IA | Novo conteúdo solicitado no desafio
 
-Este repositório é minha entrega para o desafio "Da Reunião ao Documento: Design Docs Gerados por IA". O enunciado original completo do desafio está preservado em [`docs/ENUNCIADO.md`](docs/ENUNCIADO.md) — este README documenta o meu processo de produção, não o enunciado em si.
+Este repositório é minha entrega para o desafio "Da Reunião ao Documento: Design Docs Gerados por IA". O enunciado original completo do desafio está preservado no topo deste mesmo arquivo ("Conteúdo original do desafio") — a partir daqui documento o meu processo de produção, não o enunciado em si.
 
 ## Sobre o desafio
 
@@ -419,9 +419,9 @@ Isso não é uma violação da regra: em nenhum dos dois documentos esses caminh
 
 **Tracker (`docs/TRACKER.md`)**
 - [x] Arquivo existe e segue o formato de tabela definido
-- [x] Cobertura ampla dos itens identificáveis dos documentos (83 linhas, varredura sistemática de PRD/RFC/FDD/ADRs)
-- [x] Pelo menos 70% das linhas com Fonte = `TRANSCRICAO` e timestamp válido `[hh:mm] Nome` (69 de 83 linhas, 83,1%)
-- [x] Pelo menos 5 linhas com Fonte = `CODIGO` e caminho de arquivo real (14 linhas)
+- [x] Cobertura ampla dos itens identificáveis dos documentos (87 linhas, varredura sistemática de PRD/RFC/FDD/ADRs)
+- [x] Pelo menos 70% das linhas com Fonte = `TRANSCRICAO` e timestamp válido `[hh:mm] Nome` (71 de 87 linhas, 81,6%)
+- [x] Pelo menos 5 linhas com Fonte = `CODIGO` e caminho de arquivo real (16 linhas)
 
 **README (`README.md`)**
 - [x] Contém todas as seções obrigatórias

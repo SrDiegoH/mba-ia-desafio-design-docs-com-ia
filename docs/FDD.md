@@ -137,10 +137,10 @@ Response `200 OK`:
       "createdAt": "2026-07-19T14:03:00.000Z"
     }
   ],
-  "meta": { "page": 1, "pageSize": 20, "total": 1 }
+  "pagination": { "page": 1, "pageSize": 20, "total": 1, "totalPages": 1 }
 }
 ```
-Paginação segue o padrão de `paginated()` já usado em `OrderService.list` (`src/shared/http/response.ts`).
+Paginação segue exatamente o formato retornado por `paginated()` (`src/shared/http/response.ts`): `{ data, pagination: { page, pageSize, total, totalPages } }`, já usado por `OrderService.list`.
 
 ### `POST /api/v1/webhooks/:id/rotate-secret`
 
@@ -245,7 +245,8 @@ Fonte do formato: [09:43-09:45, Diego/Sofia]. Payload intencionalmente enxuto (s
 | `WEBHOOK_PAYLOAD_TOO_LARGE` | 422 | Payload do evento excede 64KB — sistema falha explicitamente, não trunca — [09:23-09:24, Sofia] |
 | `WEBHOOK_DELIVERY_TIMEOUT` | — (erro interno do worker, não resposta HTTP a cliente externo) | Timeout de 10s excedido na chamada ao endpoint do cliente — [09:42, Diego] |
 | `WEBHOOK_DEAD_LETTER_NOT_FOUND` | 404 | Replay de `id` inexistente na `webhook_dead_letter` |
-| `WEBHOOK_DUPLICATE_CONFIG` | 409 | Já existe configuração ativa para a mesma combinação `customerId` + `url` |
+
+Os códigos acima cobrem os cenários de erro discutidos na reunião (URL inválida, payload grande, timeout, replay de DLQ). Um código adicional, `WEBHOOK_DUPLICATE_CONFIG` (impedir duas configurações ativas para a mesma combinação `customerId`+`url`), é uma **decisão de implementação em aberto** — não foi discutida na reunião e não há hoje um requisito de unicidade equivalente no domínio. Fica como ponto a decidir com o time antes da implementação, não como requisito fechado.
 
 Todos os erros seguem o formato de resposta já padronizado pelo `error.middleware.ts`: `{ "error": { "code": string, "message": string, "details"?: any } }`.
 
@@ -279,13 +280,13 @@ Esta seção nomeia os pontos exatos de integração com o código já existente
 
 1. **`src/modules/orders/order.service.ts` (método `changeStatus`, linhas 126-179)** — ponto de integração central. A transação `this.prisma.$transaction` já atualiza `orders`, ajusta estoque via `debitStock`/`replenishStock` e cria o registro em `tx.orderStatusHistory.create`. A nova função `publishWebhookEvent(tx, order, fromStatus, toStatus)` é chamada dentro dessa mesma transação, reaproveitando o client `tx` já existente, imediatamente após a criação do histórico de status. Nenhuma mudança na assinatura pública do método `changeStatus` é necessária — a chamada é interna ao service.
 
-2. **`src/shared/errors/http-errors.ts` e `src/shared/errors/app-error.ts`** — as novas classes de erro do módulo de webhooks seguem o mesmo padrão de `InvalidStatusTransitionError extends ConflictError` e `InsufficientStockError extends UnprocessableEntityError`: por exemplo, `WebhookNotFoundError extends NotFoundError`, `WebhookPayloadTooLargeError extends UnprocessableEntityError`, cada uma associada a um código da matriz de erros (`WEBHOOK_*`). Todas herdam de `AppError`, então nenhuma alteração é necessária nessas classes-base.
+2. **`src/shared/errors/http-errors.ts` e `src/shared/errors/app-error.ts`** — as novas classes de erro do módulo de webhooks seguem o mesmo padrão de `InvalidStatusTransitionError extends ConflictError` e `InsufficientStockError extends UnprocessableEntityError`: por exemplo, `WebhookPayloadTooLargeError extends UnprocessableEntityError`, cada uma associada a um código da matriz de erros (`WEBHOOK_*`), sem exigir nenhuma alteração em `ConflictError`/`UnprocessableEntityError`, que já aceitam um `code` customizável no construtor. Já `NotFoundError` hoje **não** aceita um código customizável — seu construtor hardcoda `errorCode = 'NOT_FOUND'` (`super(\`${resource} not found\`, 404, 'NOT_FOUND')`). Para que `WebhookNotFoundError`/`WebhookDeadLetterNotFoundError` emitam `WEBHOOK_NOT_FOUND`/`WEBHOOK_DEAD_LETTER_NOT_FOUND` (ver Matriz de Erros), é necessário: (a) estender `NotFoundError` para aceitar um `code` opcional no construtor, mantendo `'NOT_FOUND'` como default para não quebrar os módulos existentes, ou (b) essas duas classes de webhook estenderem `AppError` diretamente em vez de `NotFoundError`. Esta é a única classe-base que precisa de ajuste; `AppError`, `ConflictError` e `UnprocessableEntityError` permanecem inalteradas.
 
-3. **`src/middlewares/error.middleware.ts`** — já trata qualquer subclasse de `AppError` (incluindo as novas classes de erro de webhook) formatando a resposta no padrão `{error:{code,message,details?}}`, já trata `ZodError` (validação dos schemas de webhook) e erros do Prisma (`P2002`/`P2025`, relevantes para conflitos de configuração duplicada e configurações não encontradas). Nenhuma modificação é necessária neste arquivo.
+3. **`src/middlewares/error.middleware.ts`** — já trata qualquer subclasse de `AppError` (incluindo as novas classes de erro de webhook) formatando a resposta no padrão `{error:{code,message,details?}}`, já trata `ZodError` (validação dos schemas de webhook) e erros do Prisma (`P2002`/`P2025`, relevantes para conflitos de escrita concorrente e configurações não encontradas — `P2002` só se torna aplicável a configuração de webhook se a regra de unicidade `WEBHOOK_DUPLICATE_CONFIG` citada na Matriz de Erros for de fato adotada). Nenhuma modificação é necessária neste arquivo.
 
 4. **`src/middlewares/auth.middleware.ts` (`authenticate` e `requireRole`)** — os endpoints de CRUD de configuração de webhook usam apenas `authenticate` (qualquer usuário autenticado, decisão vigente para esta fase — [09:36-09:37, Marcos/Sofia]); o endpoint `POST /api/v1/admin/webhooks/dead-letter/:id/replay` usa `authenticate` + `requireRole('ADMIN')`, seguindo exatamente o padrão já usado em rotas administrativas de outros módulos (ex. `user.routes.ts`).
 
-5. **`src/shared/logger/index.ts`** — o worker e os controllers do módulo de webhooks importam o `logger` Pino singleton já configurado (com `redact.paths` já cobrindo campos sensíveis) e seguem a convenção de eventos nomeados em snake_case usada no restante do projeto, sem qualquer alteração de configuração do logger.
+5. **`src/shared/logger/index.ts`** — o worker e os controllers do módulo de webhooks importam o `logger` Pino singleton já configurado e seguem a convenção de eventos nomeados em snake_case usada no restante do projeto. **Atenção**: o `redact.paths` atual cobre `Authorization`, `cookie`, `*.password`, `*.passwordHash`, `*.token`, `*.accessToken`, mas **não** cobre `*.secret` — e as respostas de `POST /api/v1/webhooks` e `POST /api/v1/webhooks/:id/rotate-secret` retornam a secret em texto claro no corpo. Se esse corpo for logado (ex. em log de request/response ou em log de erro que inclua o payload), a secret vazaria em texto claro nos logs. `*.secret` deve ser adicionado a `redact.paths` antes do lançamento da feature — é a única alteração necessária no logger.
 
 6. **`prisma/schema.prisma`** — recebe os novos models do módulo de webhooks (`WebhookConfig`, `WebhookOutboxEvent`, `WebhookDeadLetter`, `WebhookDelivery`), com `id` em UUID seguindo o padrão de todos os models existentes (`Order`, `Customer`, `Product`, etc.), e relação (`customerId`) referenciando o model `Customer` já existente.
 

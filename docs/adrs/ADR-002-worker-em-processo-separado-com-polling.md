@@ -18,13 +18,17 @@ Implementar o processamento como um **processo Node.js separado**, com entry-poi
 
 > "Vamos registrar isso como uma decisão. Worker em polling, 2s." — [09:10, Larissa]
 
-O worker separado evita que uma falha ou reinício do processo da API derrube também o processamento de notificações, e vice-versa: "processo separado evita perda do worker em restart da API" — [09:11, Diego]. Cada processo (API e worker) instancia seu próprio `PrismaClient`, apontando para o mesmo `DATABASE_URL` — [09:29-09:30, Diego/Bruno].
+O worker separado evita que uma falha ou reinício do processo da API derrube também o processamento de notificações, e vice-versa:
+
+> "Uma coisa importante: o worker tem que rodar como processo separado, não dentro da mesma instância da API. Senão se a API reinicia, perde o worker." — [09:11, Diego]
+
+Cada processo (API e worker) instancia seu próprio `PrismaClient`, apontando para o mesmo `DATABASE_URL` — [09:29-09:30, Diego/Bruno].
 
 O intervalo de 2 segundos é compatível com a meta de latência: mesmo no pior caso (evento inserido logo após o worker iniciar um ciclo), a detecção ocorre em até ~2s, dentro da janela de 10s exigida pelo negócio — [09:02 e 09:09, Marcos/Diego].
 
 ## Alternativas Consideradas
 
-**Processar dentro do mesmo processo da API (ex.: via `setInterval` no `server.ts`).** Foi implicitamente descartada ao se decidir por um entry-point próprio análogo ao `src/server.ts` existente — [09:11, Larissa]. Acoplar o worker ao processo da API faria com que um deploy, crash ou pico de carga da API afetasse diretamente a entrega de webhooks (e vice-versa), contrariando a decisão anterior de que a transação de mudança de status não pode depender de infraestrutura externa (ver [09:04, Bruno] em [[ADR-006-reuso-de-padroes-existentes-do-projeto]]).
+**Processar dentro do mesmo processo da API (ex.: via `setInterval` no `server.ts`).** Foi implicitamente descartada ao se decidir por um entry-point próprio análogo ao `src/server.ts` existente — [09:11, Larissa]. Acoplar o worker ao processo da API faria com que um deploy, crash ou pico de carga da API afetasse diretamente a entrega de webhooks (e vice-versa) — o mesmo raciocínio de isolamento que já havia motivado a rejeição do disparo síncrono de webhook dentro da transação de `changeStatus` (ver [09:04, Bruno] em [[ADR-001-outbox-pattern-no-mysql]]).
 
 **Múltiplos workers em paralelo (processamento distribuído/particionado por `order_id`).** Melhoraria a capacidade de throughput em cenários de alto volume, mas exige mecanismo de particionamento ou lock distribuído para evitar entregas duplicadas/concorrência na mesma linha da outbox. Adiada para fase futura por ser prematura frente ao volume atual: "isso é problema do futuro, não agora." — [09:13, Diego]
 
