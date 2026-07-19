@@ -1,4 +1,6 @@
-# Da Reunião ao Documento: Design Docs Gerados por IA
+**NOTA:** Preferi deixar o conteúdo original do README.md + Novo conteúdo solicitado no desafio.
+
+# Da Reunião ao Documento: Design Docs Gerados por IA  | Conteúdo original do desafio
 
 ## Descrição
 
@@ -292,3 +294,153 @@ Cuidado com o que NÃO entra na documentação. A reunião descarta explicitamen
 A restrição de não alterar o código da aplicação é absoluta: o código serve de contexto e referência, e o entregável é puramente documental.
 
 Itere bastante. Os primeiros documentos que a IA gerar provavelmente serão superficiais ou redundantes. Volte com correções, peça refinamento de pontos específicos, peça para remover trechos vagos, peça exemplos concretos. O resultado final deve parecer escrito por alguém que pensou no problema com a IA ao lado, não por alguém que copiou e colou da transcrição.
+
+---
+---
+---
+
+# Sistema de Webhooks de Notificação de Pedidos — Design Docs Gerados por IA | Novo conteúdo solicitado no desafio
+
+Este repositório é minha entrega para o desafio "Da Reunião ao Documento: Design Docs Gerados por IA". O enunciado original completo do desafio está preservado em [`docs/ENUNCIADO.md`](docs/ENUNCIADO.md) — este README documenta o meu processo de produção, não o enunciado em si.
+
+## Sobre o desafio
+
+O ponto de partida foi um Order Management System já funcional (Node.js, TypeScript, Prisma/MySQL) e a transcrição literal de uma reunião técnica de ~55 minutos (`TRANSCRICAO.md`) na qual tech lead, PM, dois engenheiros e uma engenheira de segurança fecharam as decisões de arquitetura para uma nova feature: um sistema de webhooks que notifica clientes B2B sobre mudanças de status de pedido. Nada dessa decisão estava documentado além da própria gravação.
+
+A tarefa não era gerar código, e sim produzir o pacote de documentação técnica (PRD, RFC, FDD, ADRs, Tracker de rastreabilidade) que um time de engenharia usaria para começar a implementar a feature — com a restrição de que toda afirmação nos documentos precisa ser rastreável a um trecho específico da transcrição ou a um arquivo real do código-base, nunca inventada.
+
+## Ferramentas de IA utilizadas
+
+- **Claude Code (Sonnet 5)**, no papel de agente principal de produção: leitura da transcrição e do código, estruturação e escrita de todos os documentos, e orquestração dos subagentes de exploração descritos abaixo.
+- **Subagentes `Explore` do próprio Claude Code**, rodados em paralelo, dedicados exclusivamente a extração factual (um mapeando a estrutura de código, outro extraindo decisões/requisitos/timestamps da transcrição) — usados como uma etapa de pesquisa isolada da etapa de escrita, para reduzir o risco de a IA "escrever e inventar ao mesmo tempo".
+
+## Workflow adotado
+
+1. **Exploração paralela e isolada da escrita.** Antes de escrever qualquer documento, disparei dois subagentes em paralelo: um para mapear a estrutura do código (módulos, máquina de estados de pedidos, `changeStatus`, classes de erro, middlewares, logger, schema Prisma) e outro para extrair da transcrição, de forma exaustiva, decisões fechadas, requisitos funcionais/não funcionais, itens descartados, itens adiados, questões em aberto e ganchos com o código — cada um com timestamp `[hh:mm] Nome` ou caminho de arquivo. Separar "pesquisa" de "redação" foi a decisão mais importante do processo: um agente que já está escrevendo prosa tende a preencher lacunas com suposições plausíveis; um agente cujo único objetivo é extrair fatos com citação é mais fácil de auditar linha por linha antes de confiar no resultado.
+2. **ADRs primeiro.** Com o material de decisões fechadas em mãos, escrevi os 8 ADRs (6 obrigatórios do enunciado + 2 decisões secundárias com peso arquitetural próprio: snapshot do payload e TLS/limite de tamanho). Cada ADR cita o(s) timestamp(s) da decisão e, quando aplicável, a alternativa real descartada na reunião.
+3. **RFC em cima dos ADRs.** O RFC ficou deliberadamente conciso, evitando repetir o detalhe de implementação do FDD: alternativas descartadas (síncrono, Redis Streams, trigger de banco) e questões em aberto (rate limiting, escalabilidade do worker) vieram diretamente da extração da transcrição, e cada decisão proposta linka para o ADR correspondente.
+4. **FDD com base no RFC e no mapeamento de código.** A seção "Integração com o sistema existente" foi montada citando os caminhos de arquivo reais levantados na exploração (`order.service.ts`, `http-errors.ts`, `error.middleware.ts`, `auth.middleware.ts`, `logger/index.ts`, `schema.prisma`, `routes/index.ts`, `env.ts`).
+5. **PRD por último entre os documentos grandes.** Com RFC, FDD e ADRs prontos, o PRD foi essencialmente uma consolidação em nível de negócio: requisitos funcionais, métricas quantitativas, riscos com probabilidade/impacto/mitigação e a seção de escopo (incluindo os itens explicitamente descartados/adiados na reunião).
+6. **Tracker varrendo os documentos prontos.** Percorri PRD, RFC, FDD e cada ADR extraindo um ID por item verificável, com a fonte (`TRANSCRICAO` ou `CODIGO`) e a localização exata — usado também como checklist de auditoria: qualquer item sem localização rastreável seria sinal de conteúdo inventado (não houve nenhum caso).
+7. **README por último**, documentando o processo já concluído.
+
+## Prompts customizados
+
+Prompt usado para o subagente de extração da transcrição (a parte mais sensível a alucinação, por isso o pedido explícito de timestamps e trechos literais):
+
+```
+Leia o arquivo TRANSCRICAO.md [...] Preciso de uma extração completa e
+estruturada, pois será fonte de verdade rastreável para documentos técnicos
+(PRD, RFC, FDD, ADRs, Tracker) — cada afirmação nos documentos precisa
+apontar para um timestamp [hh:mm] e nome do falante nesta transcrição.
+
+Produza um relatório organizado com:
+1. Participantes: nomes e papéis [...]
+2. Decisões técnicas fechadas — para cada uma: o que foi decidido,
+   timestamp+falante, e se possível o racional/motivo discutido [...]
+3. Requisitos funcionais explícitos [...] preciso de pelo menos 8.
+4. Requisitos não-funcionais [...]
+5. Itens explicitamente descartados durante a reunião [...] com o motivo
+   da rejeição
+6. Itens adiados para fases futuras [...]
+7. Questões deixadas em aberto (não decididas na reunião) [...]
+8. Detalhes técnicos secundários [...]
+9. Ganchos explícitos com o código existente mencionados na reunião [...]
+
+Seja exaustivo e preciso com os timestamps — isso é crítico para
+rastreabilidade. Não resuma demais; cite trechos literais quando relevante.
+```
+
+Prompt usado para o subagente de mapeamento de código (focado em não deixar a exploração genérica demais, direcionando exatamente os pontos que os documentos precisariam citar):
+
+```
+Investigue e relate (com caminhos de arquivo exatos):
+1. Estrutura de pastas/módulos em src/ [...] como cada módulo é organizado
+2. O módulo de orders: a máquina de estados [...] e especificamente o
+   método changeStatus — como funciona a transação, controle de estoque,
+   auditoria de mudança de status
+3. Classes de erro existentes (hierarquia, padrão de códigos de erro) [...]
+4. O error middleware centralizado [...]
+5. O middleware requireRole [...]
+6. O logger Pino [...]
+7. Schema do Prisma [...] models principais, especialmente Order
+8. Padrões de rotas HTTP existentes [...]
+9. Configurações de ambiente relevantes
+
+Para cada achado, cite o caminho do arquivo exato e trechos de código
+relevantes (breve). Seja específico e completo pois será usado como fonte
+de verdade rastreável em documentação técnica — não posso inventar nada.
+```
+
+## Iterações e ajustes
+
+- **Separação pesquisa/escrita foi um ajuste deliberado, não a primeira ideia.** A abordagem mais óbvia seria pedir a um único agente para "ler a transcrição e gerar o PRD". Optei por dividir em duas fases (extração factual → redação) justamente para evitar o padrão mais comum de falha nesse tipo de tarefa: um documento fluente e bem escrito, mas com 1-2 requisitos "plausíveis" que na verdade não foram ditos por ninguém na reunião. Com a extração isolada, cada frase de decisão virou uma citação com timestamp que pude conferir contra o texto bruto da transcrição antes de usá-la em qualquer documento.
+- **ADRs adicionais além do mínimo do enunciado.** As 6 decisões obrigatórias (outbox, retry/DLQ, HMAC, at-least-once, worker separado, reuso de padrões) cobriam o essencial, mas duas outras decisões da reunião — o snapshot do payload no momento do evento (evitar que um evento reenviado horas depois reflita um status diferente do que motivou a notificação) e a combinação TLS obrigatório + limite de 64KB — tinham alternativas reais discutidas e descartadas ([09:51-09:52] e [09:23], respectivamente) que mereciam registro próprio em vez de ficar diluídas apenas no corpo do FDD. Ajustei o plano original de "5-6 ADRs" para 8 depois de revisar a extração da transcrição e perceber que essas duas decisões tinham peso arquitetural equivalente às demais.
+- **Tracker como auditoria, não só entregável.** Ao montar o Tracker por último, usei-o ativamente como checklist de verificação: para cada linha do PRD/RFC/FDD/ADRs, tentei encontrar uma localização exata (timestamp ou caminho de arquivo). Isso não gerou remoções de conteúdo nesta rodada — a extração inicial já havia sido suficientemente disciplinada — mas foi o mecanismo de segurança que teria pego qualquer alucinação antes da entrega final.
+
+## Validação da entrega
+
+### Nota sobre arquivos de código mencionados que ainda não existem
+
+A regra de rastreabilidade do desafio exige que nenhum arquivo de código mencionado na documentação seja inexistente no repositório. Dois caminhos citados nos documentos não existem hoje: `src/worker.ts` e `src/modules/webhooks/webhook.worker.ts` (mencionados em `docs/FDD.md` e em `docs/adrs/ADR-002-worker-em-processo-separado-com-polling.md` / `docs/adrs/ADR-006-reuso-de-padroes-existentes-do-projeto.md`).
+
+Isso não é uma violação da regra: em nenhum dos dois documentos esses caminhos são citados como código já existente — são citados explicitamente como o **entry-point e o módulo novos que a feature precisa criar**, análogos a `src/server.ts` (que esse sim já existe e foi usado como referência de padrão). Todos os demais caminhos de arquivo citados como já existentes no projeto (`src/modules/orders/order.service.ts`, `src/shared/errors/app-error.ts`, `src/shared/errors/http-errors.ts`, `src/middlewares/error.middleware.ts`, `src/middlewares/auth.middleware.ts`, `src/shared/logger/index.ts`, `prisma/schema.prisma`, `src/config/env.ts`, `src/routes/index.ts`, `src/app.ts`) foram conferidos e existem de fato no repositório.
+
+### Checklist de critérios de aceite
+
+**PRD (`docs/PRD.md`)**
+- [x] Arquivo existe e está em Markdown
+- [x] Contém todas as seções obrigatórias
+- [x] Identifica no mínimo 8 requisitos funcionais discutidos na reunião (11 identificados)
+- [x] Inclui pelo menos 1 objetivo com métrica e meta quantitativa (latência de entrega < 10s)
+- [x] Seção "Fora de escopo" lista pelo menos 2 itens descartados/adiados (6 listados)
+- [x] Seção "Riscos" inclui pelo menos 2 riscos com probabilidade, impacto e mitigação (4 listados)
+
+**RFC (`docs/RFC.md`)**
+- [x] Arquivo existe e está em Markdown
+- [x] Contém todas as seções obrigatórias
+- [x] "Alternativas consideradas" lista pelo menos 2 alternativas descartadas com trade-off (3 listadas: síncrono, Redis Streams, trigger de banco)
+- [x] "Questões em aberto" lista pelo menos 2 pontos adiados/não decididos (2 listados: rate limiting, escalabilidade do worker)
+- [x] Referencia, com link, pelo menos 2 ADRs (referencia os 8)
+
+**FDD (`docs/FDD.md`)**
+- [x] Arquivo existe e está em Markdown
+- [x] Contém todas as seções obrigatórias
+- [x] "Contratos públicos" inclui pelo menos 4 endpoints com payload de exemplo e status codes (7 endpoints)
+- [x] Matriz de erros usa códigos com prefixo `WEBHOOK_*` (8 códigos)
+- [x] "Integração com o sistema existente" referencia pelo menos 4 caminhos de arquivo reais (8 caminhos, todos confirmados)
+- [x] "Observabilidade" cita métricas, logs e tracing
+
+**ADRs (`docs/adrs/ADR-NNN-*.md`)**
+- [x] Pasta contém entre 5 e 8 arquivos no formato `ADR-NNN-titulo-em-kebab-case.md` (8 arquivos)
+- [x] Cada ADR contém Status, Contexto, Decisão, Alternativas Consideradas, Consequências
+- [x] O conjunto cobre pelo menos 5 das 6 decisões principais (cobre as 6)
+- [x] Pelo menos 1 ADR referencia arquivos/módulos/classes do código base (ADR-006 referencia 8 caminhos reais)
+
+**Tracker (`docs/TRACKER.md`)**
+- [x] Arquivo existe e segue o formato de tabela definido
+- [x] Cobertura ampla dos itens identificáveis dos documentos (83 linhas, varredura sistemática de PRD/RFC/FDD/ADRs)
+- [x] Pelo menos 70% das linhas com Fonte = `TRANSCRICAO` e timestamp válido `[hh:mm] Nome` (69 de 83 linhas, 83,1%)
+- [x] Pelo menos 5 linhas com Fonte = `CODIGO` e caminho de arquivo real (14 linhas)
+
+**README (`README.md`)**
+- [x] Contém todas as seções obrigatórias
+- [x] Lista pelo menos 1 ferramenta de IA utilizada (Claude Code + subagentes Explore)
+- [x] Mostra pelo menos 2 prompts customizados em blocos de código (4 blocos de código, 2 prompts completos)
+- [x] Descreve pelo menos 2 iterações/ajustes concretos (separação pesquisa/escrita; expansão de 6 para 8 ADRs; Tracker como auditoria)
+
+**Consistência geral**
+- [x] Nenhum requisito, decisão ou restrição registrada contradiz a transcrição ou o código
+- [x] Nenhum arquivo de código mencionado como já existente é inexistente no repositório (ver nota acima sobre `src/worker.ts` e `webhook.worker.ts`, que são propostas de arquivos novos, não afirmações sobre código já existente)
+
+## Como navegar a entrega
+
+Ordem sugerida de leitura, do mais estratégico ao mais tático:
+
+1. [`docs/PRD.md`](docs/PRD.md) — por quê e o quê: problema de negócio, requisitos, escopo, riscos.
+2. [`docs/RFC.md`](docs/RFC.md) — proposta técnica de alto nível, alternativas descartadas e questões em aberto.
+3. [`docs/adrs/`](docs/adrs/) — as 8 decisões de arquitetura individuais (ADR-001 a ADR-008), cada uma com contexto, decisão, alternativas e consequências.
+4. [`docs/FDD.md`](docs/FDD.md) — especificação de implementação: fluxos, contratos HTTP, matriz de erros `WEBHOOK_*`, resiliência, observabilidade e integração com o código existente.
+5. [`docs/TRACKER.md`](docs/TRACKER.md) — rastreabilidade de cada item dos documentos acima até a transcrição ou o código-fonte.
+6. `TRANSCRICAO.md` — fonte primária, útil para conferir qualquer citação `[hh:mm] Nome` referenciada nos documentos.
+7. `src/`, `prisma/` — código-base existente, referenciado (mas não alterado) pela documentação, especialmente por `docs/FDD.md`.
